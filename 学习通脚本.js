@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         💯【超星学习通满分助手】支持任务点自动跳转|章节测验、作业、考试全网检索答案，简答题支持chatgpt对接|音频、视频全自动静音播放|可视化参数配置
 // @namespace    askAuto
-// @version      2.1.6
+// @version      2.1.8
 // @author       shushoujiu
 // @description  💯超星学习通满分助手，挂机解放时间，无需任何操作自动完成所有任务点。汇集全网免费、付费题库接口支持一键对接，答案更全更靠谱。
 // @icon         https://vitejs.dev/logo.svg
@@ -57,7 +57,13 @@
   var _GM_getResourceText = (() => "undefined" != typeof GM_getResourceText ? GM_getResourceText : void 0)(), _GM_getValue = (() => "undefined" != typeof GM_getValue ? GM_getValue : void 0)(), _GM_info = (() => "undefined" != typeof GM_info ? GM_info : void 0)(), _GM_setValue = (() => "undefined" != typeof GM_setValue ? GM_setValue : void 0)(), _GM_xmlhttpRequest = (() => "undefined" != typeof GM_xmlhttpRequest ? GM_xmlhttpRequest : void 0)(), _unsafeWindow = (() => "undefined" != typeof unsafeWindow ? unsafeWindow : void 0)();
   const getConfig = () => {
     let config = _GM_getValue("config");
-    if (!config) return defaultConfig$1;
+    if ("string" == typeof config)
+      try {
+        config = JSON.parse(config);
+      } catch (e) {
+        console.warn("本地配置解析失败，已回退为默认配置:", e), config = null;
+      }
+    if (!config || "object" != typeof config) return defaultConfig$1;
     if (config.deepseekEnabled && !config.aiEnabled) {
       config.aiEnabled = true;
       config.aiApiKey = config.deepseekKey || "";
@@ -65,8 +71,17 @@
       config.aiModel = config.deepseekModel || "deepseek-reasoner";
       _GM_setValue("config", config);
     }
+    if (!config.answerMode) {
+      const hasTiku = !!(config.customApiEnabled && config.customApiUrl), hasAI = !!(config.aiEnabled && config.aiApiKey);
+      const answerMode = hasTiku && hasAI ? "hybrid" : hasTiku ? "tiku" : hasAI ? "ai" : "hybrid";
+      try {
+        config.answerMode = answerMode, _GM_setValue("config", config);
+      } catch (e) {
+        console.warn("答题模式写入配置失败，本次运行使用临时配置:", e), config = { ...defaultConfig$1, ...config, answerMode };
+      }
+    }
     return config;
-  }, defaultConfig$1 = { debugger: false, autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, thtoken: "", yztoken: "", gptKey: "", gptModel: "gpt-3.5-turbo", gpt: false, gptType: ["0", "1", "2", "3", "4", "5", "6", "7"], interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, hideExam: false, notice: "本脚本仅供学习交流使用，严禁用于商业用途，否则后果自负！", deepseekKey: "", deepseekEnabled: false, deepseekModel: "deepseek-reasoner", customApiUrl: "", customApiKey: "", customApiEnabled: false, aiEnabled: false, aiApiKey: "", aiApiUrl: "https://api.deepseek.com/v1/chat/completions", aiModel: "deepseek-reasoner" }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案" }, { name: "aiApiUrl", label: "AI API地址", type: "input", value: defaultConfig$1.aiApiUrl, desc: "OpenAI兼容的API地址，例如：https://api.deepseek.com/v1/chat/completions" }, { name: "aiModel", label: "AI模型名称", type: "input", value: defaultConfig$1.aiModel, desc: "模型名称，例如：deepseek-reasoner、gpt-4o、claude-3-opus等" }, { name: "aiApiKey", label: "AI API密钥", type: "input", value: defaultConfig$1.aiApiKey, desc: "API密钥，填写完请保存再刷新页面" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
+  }, defaultConfig$1 = { debugger: false, autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, thtoken: "", yztoken: "", gptKey: "", gptModel: "gpt-3.5-turbo", gpt: false, gptType: ["0", "1", "2", "3", "4", "5", "6", "7"], interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, hideExam: false, notice: "本脚本仅供学习交流使用，严禁用于商业用途，否则后果自负！", deepseekKey: "", deepseekEnabled: false, deepseekModel: "deepseek-reasoner", customApiUrl: "", customApiKey: "", customApiEnabled: false, aiEnabled: false, aiApiKey: "", aiApiUrl: "https://api.deepseek.com/v1/chat/completions", aiModel: "deepseek-reasoner", aiTimeout: 120, answerMode: "hybrid" }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "answerMode", label: "答题模式", type: "select", value: defaultConfig$1.answerMode, options: [{ label: "题库优先 + AI 兜底", value: "hybrid" }, { label: "AI 直答（不使用题库）", value: "ai" }, { label: "仅题库", value: "tiku" }], desc: "hybrid：先查自定义题库，查不到再用 AI；ai：跳过题库，每道题直接发给 AI 并自动填回网页；tiku：只用自定义题库，不调用 AI" }, { name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案（AI 直答模式下不会查询题库）" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案（仅“题库优先 + AI 兜底”模式下生效，AI 直答模式只要填了密钥即可用）" }, { name: "aiApiUrl", label: "AI API地址", type: "input", value: defaultConfig$1.aiApiUrl, desc: "OpenAI兼容的API地址，例如：https://api.deepseek.com/v1/chat/completions" }, { name: "aiModel", label: "AI模型名称", type: "input", value: defaultConfig$1.aiModel, desc: "模型名称，例如：deepseek-reasoner、gpt-4o、claude-3-opus等" }, { name: "aiApiKey", label: "AI API密钥", type: "input", value: defaultConfig$1.aiApiKey, desc: "API密钥，填写完请保存再刷新页面" }, { name: "aiTimeout", label: "AI请求超时(秒)", type: "number", value: defaultConfig$1.aiTimeout, desc: "推理模型（如 deepseek-reasoner）响应较慢，建议 120 秒以上；超时会导致该题没有答案" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
     _GM_setValue("config", forminput);
   } } });
   var export_helper_default = (sfc, props) => {
@@ -177,7 +192,7 @@
     async getAnswerFromCustomApi(questionData) {
       return new Promise((resolve) => {
         const config = getConfig();
-        if (!config.customApiEnabled || !config.customApiUrl) {
+        if (!config.customApiUrl) {
           resolve({ form: "自定义题库", answer: "" });
           return;
         }
@@ -228,11 +243,12 @@
     async getAnswerFromAI(questionData) {
       return new Promise((resolve) => {
         const config = getConfig();
-        if (!config.aiEnabled || !config.aiApiKey) {
+        if (!config.aiApiKey || !config.aiApiUrl) {
           resolve({ form: "AI", answer: "" });
           return;
         }
         const questionTypeId = questionData.type;
+        const typeNamesAll = { "0": "单选题", "1": "多选题", "2": "填空题", "3": "判断题", "4": "简答题", "5": "名词解释", "6": "论述题", "7": "计算题" };
         let prompt = "";
         const basePrompt = `你是一位专业的学习辅导老师，具备广泛的知识面，能够解答各类学科和学习问题。`;
         if (questionTypeId === "3") {
@@ -298,7 +314,8 @@
           model: config.aiModel || "deepseek-reasoner",
           messages: [{ role: "user", content: prompt }]
         };
-        console.log("AI请求发送中...", "模型:", config.aiModel, "题目类型:", questionTypeId === "3" ? "判断题" : questionTypeId === "1" ? "多选题" : "单选题");
+        const aiTimeoutMs = Math.max(5, Number(config.aiTimeout) || 120) * 1000;
+        console.log(`AI请求发送中... 模型: ${config.aiModel}, 题型: ${typeNamesAll[questionTypeId] || "单选题"}, 超时: ${aiTimeoutMs / 1000}s`);
         _GM_xmlhttpRequest({
           method: "POST",
           url: config.aiApiUrl,
@@ -307,11 +324,21 @@
             "Content-Type": "application/json",
             "Authorization": "Bearer " + config.aiApiKey
           },
-          timeout: 3e4,
+          timeout: aiTimeoutMs,
           onload: (res) => {
             try {
-              console.log("AI返回结果:", res.responseText);
+              console.log("AI返回结果:", res.status, res.responseText);
+              if (res.status && (res.status < 200 || res.status >= 300)) {
+                console.warn(`AI请求失败：HTTP ${res.status}。请检查「AI API地址」（需为 OpenAI 兼容的 /chat/completions 地址）、「AI API密钥」、「AI模型名称」。响应：${res.responseText}`);
+                resolve({ form: "AI", answer: "" });
+                return;
+              }
               const data = JSON.parse(res.responseText);
+              if (data.error) {
+                console.warn("AI返回错误：", data.error, "请检查模型名称与密钥");
+                resolve({ form: "AI", answer: "" });
+                return;
+              }
               if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
                 const content = data.choices[0].message.content.trim();
                 const typeNames = { "0": "单选题", "1": "多选题", "2": "填空题", "3": "判断题", "4": "简答题", "5": "名词解释", "6": "论述题", "7": "计算题" };
@@ -328,7 +355,9 @@
                     resolve({ form: "AI", answer: "" });
                   }
                 } else if (questionTypeId === "1") {
-                  const answerMatch = content.match(/[A-D]+/);
+                  // 优先解析“只包含选项字母”的回答（如 “A、C”、“ac”），避免漏选；否则回退原有字母匹配
+                  const pureLetters = content.trim().match(/^(?:答案|选项|正确选项)?\s*[:：]?\s*([A-Za-z](?:\s*[、,，\/和或]?\s*[A-Za-z])*)\s*[。.]?$/);
+                  const answerMatch = pureLetters ? [[...new Set(pureLetters[1].toUpperCase().match(/[A-Z]/g) || [])].sort().join("")] : content.match(/[A-D]+/);
                   if (answerMatch) {
                     const answerLetters = answerMatch[0];
                     const answerOptions = [];
@@ -388,11 +417,12 @@
             }
           },
           ontimeout: () => {
-            console.log("AI请求超时");
+            console.warn(`AI请求超时（${aiTimeoutMs / 1000} 秒）：${config.aiApiUrl}。本题将得不到答案，可在配置里调大「AI请求超时」，推理模型建议 120 秒以上`);
             resolve({ form: "AI", answer: "" });
           },
           onerror: (err) => {
-            console.log("AI请求错误:", err);
+            const host = String(config.aiApiUrl || "").replace(/^https?:\/\//, "").split("/")[0];
+            console.warn(`AI请求错误：${config.aiApiUrl}。常见原因：① 油猴未放行该域名，需要在脚本头部加一行 "// @connect ${host}"；② 网络不可达；③ 地址写错。`, err);
             resolve({ form: "AI", answer: "" });
           }
         });
@@ -1639,11 +1669,21 @@
   }, getAnswers = async (questionData, windowz = _unsafeWindow) => {
     let server = new ServerApi(windowz);
     const config = getConfig();
+    const answerMode = config.answerMode || "hybrid";
     const typeNames = { "0": "单选题", "1": "多选题", "2": "填空题", "3": "判断题", "4": "简答题", "5": "名词解释", "6": "论述题", "7": "计算题" };
     const typeName = typeNames[questionData.type] || "单选题";
 
-    // 优先使用自定义题库
-    if (config.customApiEnabled && config.customApiUrl) {
+    // 答题模式决定取答案的来源：ai=只用 AI（不依赖题库），tiku=只用题库，hybrid=题库优先、AI 兜底
+    const tikuReady = !!(config.customApiEnabled && config.customApiUrl), aiReady = !!(config.aiApiKey && config.aiApiUrl);
+    const useTiku = tikuReady && ("hybrid" === answerMode || "tiku" === answerMode);
+    const useAI = aiReady && ("ai" === answerMode || "hybrid" === answerMode && config.aiEnabled);
+
+    if ("ai" === answerMode) {
+      console.log(`AI直答模式：跳过题库，直接请求 AI... 模型: ${config.aiModel}, 题型: ${typeName}`);
+    }
+
+    // 自定义题库
+    if (useTiku) {
       console.log(`使用自定义题库获取答案... 题型: ${typeName}`);
       const customResult = await server.getAnswerFromCustomApi(questionData);
       if (customResult.answer && customResult.answer.length > 0) {
@@ -1652,13 +1692,17 @@
       console.log("自定义题库未找到答案，尝试其他方式...");
     }
 
-    // 使用AI自动答题
-    if (config.aiEnabled && config.aiApiKey) {
+    // AI 解题
+    if (useAI) {
       console.log(`使用AI获取答案... 模型: ${config.aiModel}, 题型: ${typeName}`);
       const aiResult = await server.getAnswerFromAI(questionData);
       if (aiResult.answer && aiResult.answer.length > 0) {
         return [aiResult];
       }
+    }
+
+    if (!useTiku && !useAI) {
+      console.log(`当前答题模式(${answerMode})没有可用的答题来源，请检查自定义题库/AI 配置`);
     }
 
     return [{ form: "AI", answer: "" }];
