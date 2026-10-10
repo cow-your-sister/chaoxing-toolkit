@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超星学习通自动化助手
 // @namespace    askAuto
-// @version      2.4.0
+// @version      2.5.0
 // @author       shushoujiu
 // @description  超星学习通任务点自动跳转、章节测验/作业/考试自动答题（自定义题库 + AI），视频/音频自动播放
 // @match        *://*.chaoxing.com/*
@@ -73,8 +73,11 @@
     if ("undefined" == typeof config.aiRetryEnabled || "undefined" == typeof config.aiRetryCount || "undefined" == typeof config.aiRetryInterval) {
       "undefined" == typeof config.aiRetryEnabled && (config.aiRetryEnabled = defaultConfig$1.aiRetryEnabled), "undefined" == typeof config.aiRetryCount && (config.aiRetryCount = defaultConfig$1.aiRetryCount), "undefined" == typeof config.aiRetryInterval && (config.aiRetryInterval = defaultConfig$1.aiRetryInterval), _GM_setValue("config", config);
     }
+    if ("undefined" == typeof config.videoRate || "undefined" == typeof config.videoRateFixEnabled || "undefined" == typeof config.videoQuizEnabled) {
+      "undefined" == typeof config.videoRate && (config.videoRate = defaultConfig$1.videoRate), "undefined" == typeof config.videoRateFixEnabled && (config.videoRateFixEnabled = defaultConfig$1.videoRateFixEnabled), "undefined" == typeof config.videoQuizEnabled && (config.videoQuizEnabled = defaultConfig$1.videoQuizEnabled), _GM_setValue("config", config);
+    }
     return config;
-  }, defaultConfig$1 = { autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, customApiEnabled: false, customApiUrl: "", customApiKey: "", aiEnabled: false, aiApiUrl: "", aiModel: "", aiApiKey: "", aiTimeout: 120, aiRetryEnabled: true, aiRetryCount: 2, aiRetryInterval: 3, answerMode: "hybrid", uploadEnabled: false, uploadTargets: [{ name: "题库海", url: "http://api.tikuhai.com/save1" }] }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "answerMode", label: "答题模式", type: "select", value: defaultConfig$1.answerMode, options: [{ label: "题库优先 + AI 兜底", value: "hybrid" }, { label: "AI 直答（不使用题库）", value: "ai" }, { label: "仅题库", value: "tiku" }], desc: "hybrid：先查自定义题库，查不到再用 AI；ai：跳过题库，每道题直接发给 AI 并自动填回网页；tiku：只用自定义题库，不调用 AI" }, { name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案（AI 直答模式下不会查询题库）" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案（仅“题库优先 + AI 兜底”模式下生效，AI 直答模式只要填了密钥即可用）" }, { name: "aiApiUrl", label: "AI 接口地址", type: "input", placeholder: "https://api.deepseek.com/v1/chat/completions", value: defaultConfig$1.aiApiUrl, desc: "OpenAI 兼容的 chat completions 接口【完整地址】，必须以 /chat/completions 结尾（不要只填服务商主页或 /v1）。DeepSeek：https://api.deepseek.com/v1/chat/completions；OpenAI：https://api.openai.com/v1/chat/completions；其他服务商按其文档填写" }, { name: "aiModel", label: "AI 模型名称", type: "input", placeholder: "deepseek-reasoner", value: defaultConfig$1.aiModel, desc: "服务商提供的模型名，各厂商命名不同，如 deepseek-reasoner、deepseek-chat、gpt-4o、qwen-plus、moonshot-v1-8k 等" }, { name: "aiApiKey", label: "AI API 密钥", type: "input", placeholder: "sk-...", value: defaultConfig$1.aiApiKey, desc: "服务商控制台生成的 API 密钥，填写完请保存再刷新页面" }, { name: "aiTimeout", label: "AI请求超时(秒)", type: "number", value: defaultConfig$1.aiTimeout, desc: "推理模型（如 deepseek-reasoner）响应较慢，建议 120 秒以上；超时会导致该题没有答案" }, { name: "aiRetryEnabled", label: "AI无答案时重试", type: "switch", value: defaultConfig$1.aiRetryEnabled, desc: "AI 未返回有效答案（请求失败、超时或返回内容无法解析）时自动重试" }, { name: "aiRetryCount", label: "AI重试次数", type: "number", value: defaultConfig$1.aiRetryCount, desc: "无答案时最多再重试几次，范围 0-10，仅在开启重试时生效" }, { name: "aiRetryInterval", label: "AI重试间隔(秒)", type: "number", value: defaultConfig$1.aiRetryInterval, desc: "每次重试之间的等待秒数，范围 0-60，避免频繁请求服务商" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }, { name: "upload", label: "题目上报", config: [{ name: "uploadEnabled", label: "启用题目上报", type: "switch", value: defaultConfig$1.uploadEnabled, desc: "开启后，做章节测验/作业时会把题目与答案上报到下面列表里的地址；默认关闭，不上报任何数据" }, { name: "uploadTargets", label: "上报目标列表", type: "targets", value: defaultConfig$1.uploadTargets, desc: "每项包含题库名称与上报地址，请求方式为 POST JSON {questionList, url}；默认含题库海，可自行添加或删除。访问新域名时油猴会提示授权，不需要手改脚本头部" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
+  }, defaultConfig$1 = { autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, videoRate: 16, videoRateFixEnabled: true, videoQuizEnabled: true, customApiEnabled: false, customApiUrl: "", customApiKey: "", aiEnabled: false, aiApiUrl: "", aiModel: "", aiApiKey: "", aiTimeout: 120, aiRetryEnabled: true, aiRetryCount: 2, aiRetryInterval: 3, answerMode: "hybrid", uploadEnabled: false, uploadTargets: [{ name: "题库海", url: "http://api.tikuhai.com/save1" }] }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "answerMode", label: "答题模式", type: "select", value: defaultConfig$1.answerMode, options: [{ label: "题库优先 + AI 兜底", value: "hybrid" }, { label: "AI 直答（不使用题库）", value: "ai" }, { label: "仅题库", value: "tiku" }], desc: "hybrid：先查自定义题库，查不到再用 AI；ai：跳过题库，每道题直接发给 AI 并自动填回网页；tiku：只用自定义题库，不调用 AI" }, { name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案（AI 直答模式下不会查询题库）" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案（仅“题库优先 + AI 兜底”模式下生效，AI 直答模式只要填了密钥即可用）" }, { name: "aiApiUrl", label: "AI 接口地址", type: "input", placeholder: "https://api.deepseek.com/v1/chat/completions", value: defaultConfig$1.aiApiUrl, desc: "OpenAI 兼容的 chat completions 接口【完整地址】，必须以 /chat/completions 结尾（不要只填服务商主页或 /v1）。DeepSeek：https://api.deepseek.com/v1/chat/completions；OpenAI：https://api.openai.com/v1/chat/completions；其他服务商按其文档填写" }, { name: "aiModel", label: "AI 模型名称", type: "input", placeholder: "deepseek-reasoner", value: defaultConfig$1.aiModel, desc: "服务商提供的模型名，各厂商命名不同，如 deepseek-reasoner、deepseek-chat、gpt-4o、qwen-plus、moonshot-v1-8k 等" }, { name: "aiApiKey", label: "AI API 密钥", type: "input", placeholder: "sk-...", value: defaultConfig$1.aiApiKey, desc: "服务商控制台生成的 API 密钥，填写完请保存再刷新页面" }, { name: "aiTimeout", label: "AI请求超时(秒)", type: "number", value: defaultConfig$1.aiTimeout, desc: "推理模型（如 deepseek-reasoner）响应较慢，建议 120 秒以上；超时会导致该题没有答案" }, { name: "aiRetryEnabled", label: "AI无答案时重试", type: "switch", value: defaultConfig$1.aiRetryEnabled, desc: "AI 未返回有效答案（请求失败、超时或返回内容无法解析）时自动重试" }, { name: "aiRetryCount", label: "AI重试次数", type: "number", value: defaultConfig$1.aiRetryCount, desc: "无答案时最多再重试几次，范围 0-10，仅在开启重试时生效" }, { name: "aiRetryInterval", label: "AI重试间隔(秒)", type: "number", value: defaultConfig$1.aiRetryInterval, desc: "每次重试之间的等待秒数，范围 0-60，避免频繁请求服务商" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "videoRate", label: "视频播放倍速", type: "number", value: defaultConfig$1.videoRate, desc: "自动播放视频时的倍速，默认 16（原脚本行为），范围 1-16；设为 1 即原速播放" }, { name: "videoRateFixEnabled", label: "保持倍速", type: "switch", value: defaultConfig$1.videoRateFixEnabled, desc: "部分页面会把播放速度重置回 1，开启后每秒重新设置一次" }, { name: "videoQuizEnabled", label: "视频弹题自动作答", type: "switch", value: defaultConfig$1.videoQuizEnabled, desc: "视频中途弹出题目时，按当前答题模式（自定义题库 / AI）自动作答并提交" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }, { name: "upload", label: "题目上报", config: [{ name: "uploadEnabled", label: "启用题目上报", type: "switch", value: defaultConfig$1.uploadEnabled, desc: "开启后，做章节测验/作业时会把题目与答案上报到下面列表里的地址；默认关闭，不上报任何数据" }, { name: "uploadTargets", label: "上报目标列表", type: "targets", value: defaultConfig$1.uploadTargets, desc: "每项包含题库名称与上报地址，请求方式为 POST JSON {questionList, url}；默认含题库海，可自行添加或删除。访问新域名时油猴会提示授权，不需要手改脚本头部" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
     _GM_setValue("config", forminput);
   } } });
   var export_helper_default = (sfc, props) => {
@@ -1638,7 +1641,58 @@
     }
 
     return [{ form: "AI", answer: "" }];
-  }, fillAnswer = (answer, questionData, html, iframeWindow) => {
+  }, handleVideoQuiz = async (iframeWindow) => {
+    const doc = iframeWindow.document, quiz = doc.querySelector(".ans-videoquiz");
+    if (!quiz || "none" === iframeWindow.getComputedStyle(quiz).display)
+      return false;
+    const inputs = Array.from(quiz.querySelectorAll("input")), marked = inputs.filter((input) => "true" === input.value);
+    // 主路径：页面已经把正确项标在选项上，直接照标记勾选（零延迟、不会错）
+    if (marked.length > 0) {
+      marked.forEach((input) => {
+        input.checked || input.click();
+      });
+      const submitBtn = quiz.querySelector(".ans-videoquiz-submit, .ans-videoquiz-submitBtn");
+      return submitBtn ? (await sleep(1), submitBtn.click(), console.log(`[视频弹题] 已按页面标记勾选 ${marked.length} 个正确项并提交`), true) : (console.warn("[视频弹题] 找到了正确项但没有找到提交按钮，请反馈页面结构"), false);
+    }
+    // 冗余路径：没有标记项（页面可能改过结构）时，用脚本的解题逻辑作答；只尝试一次，避免反复请求题库/AI
+    if (quiz.getAttribute("data-cx-solving"))
+      return false;
+    quiz.setAttribute("data-cx-solving", "1");
+    try {
+      const optionEls = Array.from(quiz.querySelectorAll("ul li"));
+      if (0 === optionEls.length)
+        return false;
+      const titleEl = quiz.querySelector(".ans-videoquiz-title, .ans-videoquiz-tit"), question = ((titleEl || quiz).textContent || "").replace(/\s+/g, " ").trim(), options = optionEls.map((li) => (li.textContent || "").replace(/\s+/g, " ").trim().replace(/^[A-Za-z][.、．]\s*/, "")), typeId = inputs.length > 0 && "checkbox" === inputs[0].type ? "1" : "0";
+      console.log(`[视频弹题] 没有找到页面标记项，改用解题逻辑作答：${question}`);
+      const answerList = await getAnswers({ question, options, type: typeId }, iframeWindow), picked = [];
+      (answerList || []).forEach((item) => {
+        const arr = Array.isArray(item.answer) ? item.answer : "string" == typeof item.answer && item.answer ? [item.answer] : [];
+        arr.forEach((ans) => {
+          const text = String(ans).replace(/\s+/g, " ").trim();
+          if (!text)
+            return;
+          let idx = options.findIndex((o) => o === text);
+          idx < 0 && /^[A-Za-z]$/.test(text) && (idx = text.toUpperCase().charCodeAt(0) - 65), idx < 0 && (idx = options.findIndex((o) => o && (o.indexOf(text) >= 0 || text.indexOf(o) >= 0)));
+          if (idx >= 0 && idx < optionEls.length && -1 === picked.indexOf(idx)) {
+            picked.push(idx);
+            const input = optionEls[idx].querySelector("input") || inputs[idx];
+            input && !input.checked && input.click();
+          }
+        });
+      });
+      if (0 === picked.length) {
+        console.log("[视频弹题] 解题没有给出可用答案，本次不提交");
+        return false;
+      }
+      const submitBtn = quiz.querySelector(".ans-videoquiz-submit, .ans-videoquiz-submitBtn");
+      return submitBtn ? (await sleep(1), submitBtn.click(), console.log(`[视频弹题] 已按解题结果勾选 ${picked.length} 个选项并提交`), true) : false;
+    } catch (e) {
+      console.warn("[视频弹题] 解题作答失败：", e);
+      return false;
+    }
+  }, fillAnswer = 
+
+(answer, questionData, html, iframeWindow) => {
     answer = answer.filter((item) => item.answer.length > 0), console.log(answer);
     for (let i = 0; i < answer.length; i++) {
       if ("string" == typeof answer[i].answer) {
@@ -1781,8 +1835,10 @@
     }
     async video(iframeWindow) {
       this.askStore.reset(), this.askStore.task.name = "视频", this.askStore.task.video.status = 1, await waitElementLoaded(iframeWindow, "#video_html5_api"), console.log("视频加载完成");
+      const videoConfig = getConfig(), videoRate = Math.max(1, Math.min(16, Number(videoConfig.videoRate) || 16)), rateFixEnabled = false !== videoConfig.videoRateFixEnabled, quizEnabled = false !== videoConfig.videoQuizEnabled;
       const player = iframeWindow.videojs("video_html5_api"), playerButton = iframeWindow.document.querySelector(".vjs-big-play-button");
-      player.muted(true), player.playbackRate(16), player.play();
+      player.muted(true), player.playbackRate(videoRate), player.play();
+      console.log(`[视频] 以 ${videoRate} 倍速播放；保持倍速:${rateFixEnabled}；弹题自动作答:${quizEnabled}`);
 
       // 生成随机暂停时间（30-93秒）
       const randomPauseTime = Math.floor(Math.random() * (93 - 30 + 1)) + 30;
@@ -1857,7 +1913,12 @@
 
       await new Promise((resolve) => {
         const intervalId = setInterval(() => {
-          "isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob() ? player.paused() && (playerButton == null ? void 0 : playerButton.click()) : (clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve());
+          if ("isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob()) {
+            player.paused() && (playerButton == null ? void 0 : playerButton.click());
+            rateFixEnabled && player.playbackRate() !== videoRate && player.playbackRate(videoRate);
+            quizEnabled && handleVideoQuiz(iframeWindow);
+          } else
+            clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve();
         }, 1e3), pauseBase = player.pause;
         player.pause = function() {
           player.currentTime() >= player.duration() && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve());
