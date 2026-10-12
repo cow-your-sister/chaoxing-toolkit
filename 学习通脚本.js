@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超星学习通自动化助手
 // @namespace    askAuto
-// @version      2.5.1
+// @version      2.5.2
 // @author       shushoujiu
 // @description  超星学习通任务点自动跳转、章节测验/作业/考试自动答题（自定义题库 + AI），视频/音频自动播放
 // @match        *://*.chaoxing.com/*
@@ -1900,20 +1900,26 @@
       });
     }
     async video(iframeWindow) {
+      // 等播放器元素（#video_html5_api）出现即开始播放，不额外等待视频元数据/播放器就绪：
+      // 元数据未就绪时页面即使调用 pause，下面的 pause 接管也不会把它误判成"播放完成"（已加 duration > 0 保护），
+      // 而"任务点是否完成"统一由 isVideoJobUnfinished() 判定，所以这里保持原版行为即可
       this.askStore.reset(), this.askStore.task.name = "视频", this.askStore.task.video.status = 1, await waitElementLoaded(iframeWindow, "#video_html5_api"), console.log("视频加载完成");
       const videoConfig = getConfig(), videoRate = Math.max(1, Math.min(16, Number(videoConfig.videoRate) || 16)), rateFixEnabled = false !== videoConfig.videoRateFixEnabled, quizEnabled = false !== videoConfig.videoQuizEnabled;
       const player = iframeWindow.videojs("video_html5_api"), playerButton = iframeWindow.document.querySelector(".vjs-big-play-button");
       player.muted(true), player.playbackRate(videoRate), player.play();
       console.log(`[视频] 以 ${videoRate} 倍速播放；保持倍速:${rateFixEnabled}；弹题自动作答:${quizEnabled}`);
 
-      // 生成随机暂停时间（30-93秒）
-      const randomPauseTime = Math.floor(Math.random() * (93 - 30 + 1)) + 30;
+      // 随机暂停的等待时间上限（15-80 秒）
+      // 注意：randomPauseTime 当前没有被使用，实际等待时间是 scheduleRandomPause 内部单独算的
+      const randomPauseTime = Math.floor(Math.random() * (65 - 20 + 1)) + 15;
       let pauseTimer = null;
       let mouseMoveTimer = null;
 
-      // 随机暂停功能
+      // 随机暂停功能：15-60 秒后"暂停"一次，再等 2-5 秒恢复，模拟真人观看。
+      // 因为 player.pause 已被接管（见下方 await new Promise 处的 pause 覆盖），这里的 player.pause() 不会真的暂停，
+      // 即不会出现真实的"暂停→播放"切换（反复暂停播放会触发风控）
       const scheduleRandomPause = () => {
-        const delay = Math.floor(Math.random() * (93 - 30 + 1) + 30) * 1000;
+        const delay = Math.floor(Math.random() * (65 - 20 + 1) + 15) * 1000;
         pauseTimer = setTimeout(() => {
           if (!player.paused()) {
             player.pause();
@@ -1986,8 +1992,13 @@
           } else
             clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve();
         }, 1e3), pauseBase = player.pause;
+        // 接管 player.pause：页面在切换标签/失焦时会调用它暂停视频，必须屏蔽掉；
+        // 同时脚本自己也不做真实的"暂停→播放"切换（反复暂停播放会触发风控）。
+        // 这个覆盖不会调用原始 pause，只有播到结尾时才会把 pause 还原。
+        // duration > 0 这个条件不能省：元数据还没就绪时 duration() 为 0，否则任何一次 pause 都会被误判成"播放完成"
         player.pause = function() {
-          player.currentTime() >= player.duration() && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve());
+          const duration = player.duration();
+          duration > 0 && player.currentTime() >= duration && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve());
         }, player.on("ended", () => {
           console.log("视频播放完成1"), player.pause = pauseBase, player.pause(), clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve();
         });
@@ -2146,36 +2157,43 @@
         let jobList = _self1.document.querySelectorAll(".ans-job-icon") || [];
         for (let i = 0; i < jobList.length; i++) {
           const item = jobList[i];
-          if ((_a = item.parentElement) == null ? void 0 : _a.classList.contains("ans-job-finished")) {
-            const iframe = (_b = item.parentElement) == null ? void 0 : _b.querySelector("iframe");
-            if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/work\/index.html/)) {
-              await waitIframeLoaded(iframe), JSON.parse(iframe.getAttribute("data"));
-              const workIframe = (_c = iframe.contentWindow) == null ? void 0 : _c.document.querySelector("iframe");
-              workIframe && (await waitIframeLoaded(workIframe), cxModel.s(workIframe.contentWindow));
+          try {
+            if ((_a = item.parentElement) == null ? void 0 : _a.classList.contains("ans-job-finished")) {
+              const iframe = (_b = item.parentElement) == null ? void 0 : _b.querySelector("iframe");
+              if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/work\/index.html/)) {
+                await waitIframeLoaded(iframe), JSON.parse(iframe.getAttribute("data"));
+                const workIframe = (_c = iframe.contentWindow) == null ? void 0 : _c.document.querySelector("iframe");
+                workIframe && (await waitIframeLoaded(workIframe), cxModel.s(workIframe.contentWindow));
+              }
+              console.log(iframe.src, "已完成"), cxModel.askStore.log("已完成的任务点,跳过");
+            } else {
+              const iframe = (_d = item.parentElement) == null ? void 0 : _d.querySelector("iframe");
+              await waitIframeLoaded(iframe);
+              const otherInfo = JSON.parse(iframe.getAttribute("data"));
+              if (cxModel.askStore.log(`正在完成任务:${otherInfo.name || otherInfo.title}`), iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/video\/index\.html/)) {
+                if (!formStore.forminput.autoVideo) {
+                  cxModel.askStore.log("视频任务已跳过", "success");
+                  continue;
+                }
+                // 视频的播放、保持倍速、弹题与"任务点是否完成"的判定都在 cxModel.video 内部处理
+                await cxModel.video(iframe.contentWindow), cxModel.askStore.log("视频任务已完成", "success");
+              } else if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/work\/index.html/)) {
+                cxModel.askStore.log("即将开始做作业", "info");
+                const workIframe = (_e = iframe.contentWindow) == null ? void 0 : _e.document.querySelector("iframe");
+                workIframe && (await waitIframeLoaded(workIframe), await cxModel.work(workIframe.contentWindow), cxModel.askStore.log("作业任务已完成", "success"));
+              } else if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/audio\/index.html/)) {
+                if (log("音频", "error"), !formStore.forminput.autoVideo) {
+                  cxModel.askStore.log("音频任务已跳过", "success");
+                  continue;
+                }
+                iframe && (await waitIframeLoaded(iframe), await cxModel.audio(iframe.contentWindow), cxModel.askStore.log("音频任务已完成", "success"));
+              } else
+                (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/pdf\/index.html/)) ? (log("文档", "error"), iframe && (await waitIframeLoaded(iframe), await cxModel.pdf(iframe.contentWindow), cxModel.askStore.log("pdf任务已完成", "success"))) : (console.log(iframe == null ? void 0 : iframe.src, "未知"), cxModel.askStore.log("未知任务跳过", "success"));
             }
-            console.log(iframe.src, "已完成"), cxModel.askStore.log("已完成的任务点,跳过");
-          } else {
-            const iframe = (_d = item.parentElement) == null ? void 0 : _d.querySelector("iframe");
-            await waitIframeLoaded(iframe);
-            const otherInfo = JSON.parse(iframe.getAttribute("data"));
-            if (cxModel.askStore.log(`正在完成任务:${otherInfo.name || otherInfo.title}`), iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/video\/index\.html/)) {
-              if (!formStore.forminput.autoVideo) {
-                cxModel.askStore.log("视频任务已跳过", "success");
-                continue;
-              }
-              await cxModel.video(iframe.contentWindow), cxModel.askStore.log("视频任务已完成", "success");
-            } else if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/work\/index.html/)) {
-              cxModel.askStore.log("即将开始做作业", "info");
-              const workIframe = (_e = iframe.contentWindow) == null ? void 0 : _e.document.querySelector("iframe");
-              workIframe && (await waitIframeLoaded(workIframe), await cxModel.work(workIframe.contentWindow), cxModel.askStore.log("作业任务已完成", "success"));
-            } else if (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/audio\/index.html/)) {
-              if (log("音频", "error"), !formStore.forminput.autoVideo) {
-                cxModel.askStore.log("音频任务已跳过", "success");
-                continue;
-              }
-              iframe && (await waitIframeLoaded(iframe), await cxModel.audio(iframe.contentWindow), cxModel.askStore.log("音频任务已完成", "success"));
-            } else
-              (iframe == null ? void 0 : iframe.src.match(/\/ananas\/modules\/pdf\/index.html/)) ? (log("文档", "error"), iframe && (await waitIframeLoaded(iframe), await cxModel.pdf(iframe.contentWindow), cxModel.askStore.log("pdf任务已完成", "success"))) : (console.log(iframe == null ? void 0 : iframe.src, "未知"), cxModel.askStore.log("未知任务跳过", "success"));
+          } catch (e) {
+            // 单个任务点出错不再中断整章，记录后继续处理后面的任务点
+            console.error("[任务点] 处理出错，跳过该任务点：", e);
+            cxModel.askStore.log(`任务点处理出错已跳过：${(e && e.message) || e}`, "error");
           }
         }
         await sleep(formStore.forminput.interval), !formStore.forminput.autoJump && cxModel.askStore.msg("由于未开启自动切换,请手动切换"), formStore.forminput.autoJump && (top == null ? void 0 : top.document.querySelector(".nextChapter").click());
