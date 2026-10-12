@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超星学习通自动化助手
 // @namespace    askAuto
-// @version      2.5.0
+// @version      2.5.1
 // @author       shushoujiu
 // @description  超星学习通任务点自动跳转、章节测验/作业/考试自动答题（自定义题库 + AI），视频/音频自动播放
 // @match        *://*.chaoxing.com/*
@@ -1641,24 +1641,86 @@
     }
 
     return [{ form: "AI", answer: "" }];
+  }, videoQuizSubmitLog = new WeakMap(), getVideoQuizKey = (quiz) => {
+    // 题目指纹：取弹题标题（取不到时退回容器文本）的前 80 字，用来判断"是不是同一道题"，
+    // 页面把弹题换成下一题时指纹变化，提交记录随之重置
+    const titleEl = quiz.querySelector(".ans-videoquiz-title, .ans-videoquiz-tit"), text = ((titleEl || quiz).textContent || "").replace(/\s+/g, " ").trim();
+    return text.slice(0, 80) || "unknown";
+  }, canSubmitVideoQuiz = (quiz) => {
+    const key = getVideoQuizKey(quiz), record = videoQuizSubmitLog.get(quiz), now = Date.now();
+    // 同一道弹题最多提交 2 次（首次 + 1 次失败重试），两次之间至少间隔 3 秒；
+    // 放行的同时立刻记账，避免提交（含 1 秒等待）期间的重复调用也被放行
+    if (record && record.key === key) {
+      if (record.count >= 2)
+        return { allow: false, key, count: record.count, reason: "已达最大提交次数" };
+      if (now - record.at < 3e3)
+        return { allow: false, key, count: record.count, reason: "距上次提交不足 3 秒" };
+      return videoQuizSubmitLog.set(quiz, { key, count: record.count + 1, at: now }), { allow: true, key, count: record.count + 1 };
+    }
+    return videoQuizSubmitLog.set(quiz, { key, count: 1, at: now }), { allow: true, key, count: 1 };
+  }, submitVideoQuiz = async (quiz, gate) => {
+    const submitBtn = quiz.querySelector(".ans-videoquiz-submit, .ans-videoquiz-submitBtn");
+    if (!submitBtn) {
+      console.warn("[视频弹题] 找到了答案但没有找到提交按钮，请反馈页面结构");
+      return false;
+    }
+    await sleep(1);
+    // 等待期间页面可能已经把弹题换成下一题，此时提交会提交错题，用题目指纹校验一次
+    if (getVideoQuizKey(quiz) !== gate.key) {
+      console.warn("[视频弹题] 提交前弹题已切换，放弃本次提交");
+      return false;
+    }
+    return submitBtn.click(), true;
+  }, isVideoJobUnfinished = (iframeWindow, player) => {
+    // 判断"该视频任务点是否还没完成"：返回 true 才继续等待/补播，返回 false 视为任务点已完成。
+    // 原版写的是 "isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob()，
+    // 页面没有这个函数时会直接判成"已完成"并跳到下一个任务点，这里用进度兜底避免该误判
+    const pageFlag = iframeWindow.isUnFinishJob;
+    if ("function" == typeof pageFlag) {
+      try {
+        return !!pageFlag.call(iframeWindow);
+      } catch (e) {
+        console.warn("[视频] isUnFinishJob() 调用异常，按未完成处理：", e);
+        return true;
+      }
+    }
+    // 页面没有 isUnFinishJob 时只能用播放进度兜底：进度未知一律按"未完成"处理，
+    // 绝不能在播放器还没加载好（或还没播完）时把任务点判定为完成，否则会直接跳到下一个任务点
+    if (!player)
+      return true;
+    try {
+      if ("function" == typeof player.ended && player.ended())
+        return false;
+      const duration = Number(player.duration()), current = Number(player.currentTime());
+      return !(isFinite(duration) && duration > 0 && current >= duration - 1);
+    } catch (e) {
+      console.warn("[视频] 读取播放进度失败，按未完成处理：", e);
+      return true;
+    }
   }, handleVideoQuiz = async (iframeWindow) => {
     const doc = iframeWindow.document, quiz = doc.querySelector(".ans-videoquiz");
     if (!quiz || "none" === iframeWindow.getComputedStyle(quiz).display)
       return false;
-    const inputs = Array.from(quiz.querySelectorAll("input")), marked = inputs.filter((input) => "true" === input.value);
-    // 主路径：页面已经把正确项标在选项上，直接照标记勾选（零延迟、不会错）
-    if (marked.length > 0) {
-      marked.forEach((input) => {
-        input.checked || input.click();
-      });
-      const submitBtn = quiz.querySelector(".ans-videoquiz-submit, .ans-videoquiz-submitBtn");
-      return submitBtn ? (await sleep(1), submitBtn.click(), console.log(`[视频弹题] 已按页面标记勾选 ${marked.length} 个正确项并提交`), true) : (console.warn("[视频弹题] 找到了正确项但没有找到提交按钮，请反馈页面结构"), false);
-    }
-    // 冗余路径：没有标记项（页面可能改过结构）时，用脚本的解题逻辑作答；只尝试一次，避免反复请求题库/AI
-    if (quiz.getAttribute("data-cx-solving"))
+    // 上一轮作答（可能正在等题库/AI 或 sleep）还没结束时不重入，避免重复勾选、重复提交
+    if (quiz.getAttribute("data-cx-busy"))
       return false;
-    quiz.setAttribute("data-cx-solving", "1");
+    quiz.setAttribute("data-cx-busy", "1");
     try {
+      const inputs = Array.from(quiz.querySelectorAll("input")), marked = inputs.filter((input) => "true" === input.value);
+      // 主路径：页面已经把正确项标在选项上，直接照标记勾选（零延迟、不会错）
+      if (marked.length > 0) {
+        marked.forEach((input) => {
+          input.checked || input.click();
+        });
+        const gate = canSubmitVideoQuiz(quiz);
+        if (!gate.allow)
+          return console.log(`[视频弹题] 已勾选 ${marked.length} 个正确项，但${gate.reason}，本次不重复提交`), false;
+        return await submitVideoQuiz(quiz, gate) ? (console.log(`[视频弹题] 已按页面标记勾选 ${marked.length} 个正确项并提交（第 ${gate.count} 次）`), true) : false;
+      }
+      // 冗余路径：没有标记项（页面可能改过结构）时，用脚本的解题逻辑作答；每道题只尝试一次，避免反复请求题库/AI
+      if (quiz.getAttribute("data-cx-solving"))
+        return false;
+      quiz.setAttribute("data-cx-solving", "1");
       const optionEls = Array.from(quiz.querySelectorAll("ul li"));
       if (0 === optionEls.length)
         return false;
@@ -1684,11 +1746,15 @@
         console.log("[视频弹题] 解题没有给出可用答案，本次不提交");
         return false;
       }
-      const submitBtn = quiz.querySelector(".ans-videoquiz-submit, .ans-videoquiz-submitBtn");
-      return submitBtn ? (await sleep(1), submitBtn.click(), console.log(`[视频弹题] 已按解题结果勾选 ${picked.length} 个选项并提交`), true) : false;
+      const gate = canSubmitVideoQuiz(quiz);
+      if (!gate.allow)
+        return console.log(`[视频弹题] 解题得到答案，但${gate.reason}，本次不重复提交`), false;
+      return await submitVideoQuiz(quiz, gate) ? (console.log(`[视频弹题] 已按解题结果勾选 ${picked.length} 个选项并提交（第 ${gate.count} 次）`), true) : false;
     } catch (e) {
-      console.warn("[视频弹题] 解题作答失败：", e);
+      console.warn("[视频弹题] 作答失败：", e);
       return false;
+    } finally {
+      quiz.removeAttribute("data-cx-busy");
     }
   }, fillAnswer = 
 
@@ -1854,7 +1920,7 @@
             console.log(`[视频] 已随机暂停，暂停时间: ${delay / 1000}秒`);
             // 暂停2-5秒后恢复播放
             setTimeout(() => {
-              if (player.paused() && "isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob()) {
+              if (player.paused() && isVideoJobUnfinished(iframeWindow, player)) {
                 player.play();
                 console.log("[视频] 已恢复播放");
                 scheduleRandomPause();
@@ -1904,7 +1970,7 @@
         const delay = Math.floor(Math.random() * (8 - 3 + 1) + 3) * 1000;
         mouseMoveTimer = setTimeout(() => {
           simulateMouseMovement();
-          if ("isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob()) {
+          if (isVideoJobUnfinished(iframeWindow, player)) {
             scheduleMouseMovement();
           }
         }, delay);
@@ -1913,7 +1979,7 @@
 
       await new Promise((resolve) => {
         const intervalId = setInterval(() => {
-          if ("isUnFinishJob" in iframeWindow && iframeWindow.isUnFinishJob()) {
+          if (isVideoJobUnfinished(iframeWindow, player)) {
             player.paused() && (playerButton == null ? void 0 : playerButton.click());
             rateFixEnabled && player.playbackRate() !== videoRate && player.playbackRate(videoRate);
             quizEnabled && handleVideoQuiz(iframeWindow);
