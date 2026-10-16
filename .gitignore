@@ -7,3 +7,5 @@ __pycache__/
 Thumbs.db
 Desktop.ini
 .DS_Store
+ref.md
+dump/
