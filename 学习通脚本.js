@@ -2093,80 +2093,6 @@
       player.muted(true), player.playbackRate(videoRate), player.play();
       console.log(`[视频] 以 ${videoRate} 倍速播放；保持倍速:${rateFixEnabled}；解除倍速限制:${unlockEnabled}；弹题自动作答:${quizEnabled}；日志改写:${logReportEnabled}`);
 
-      // 随机暂停的等待时间上限（15-80 秒）
-      // 注意：randomPauseTime 当前没有被使用，实际等待时间是 scheduleRandomPause 内部单独算的
-      const randomPauseTime = Math.floor(Math.random() * (65 - 20 + 1)) + 15;
-      let pauseTimer = null;
-      let mouseMoveTimer = null;
-
-      // 随机暂停功能：15-60 秒后"暂停"一次，再等 2-5 秒恢复，模拟真人观看。
-      // 因为 player.pause 已被接管（见下方 await new Promise 处的 pause 覆盖），这里的 player.pause() 不会真的暂停，
-      // 即不会出现真实的"暂停→播放"切换（反复暂停播放会触发风控）
-      const scheduleRandomPause = () => {
-        const delay = Math.floor(Math.random() * (65 - 20 + 1) + 15) * 1000;
-        pauseTimer = setTimeout(() => {
-          if (!player.paused()) {
-            player.pause();
-            console.log(`[视频] 已随机暂停，暂停时间: ${delay / 1000}秒`);
-            // 暂停2-5秒后恢复播放
-            setTimeout(() => {
-              if (player.paused() && isVideoJobUnfinished(iframeWindow, player)) {
-                player.play();
-                console.log("[视频] 已恢复播放");
-                scheduleRandomPause();
-              }
-            }, Math.floor(Math.random() * (5 - 2 + 1) + 2) * 1000);
-          }
-        }, delay);
-      };
-      scheduleRandomPause();
-
-      // 模拟鼠标滑动功能
-      const simulateMouseMovement = () => {
-        const doc = iframeWindow.document;
-        const videoElement = doc.querySelector("#video_html5_api") || doc.body;
-
-        // 生成随机位置
-        const rect = videoElement.getBoundingClientRect();
-        const x = Math.floor(Math.random() * rect.width) + rect.left;
-        const y = Math.floor(Math.random() * rect.height) + rect.top;
-
-        // 创建并分发鼠标事件
-        const events = ["mousemove", "mouseover", "mouseenter"];
-        events.forEach(eventType => {
-          const event = new MouseEvent(eventType, {
-            bubbles: true,
-            cancelable: true,
-            view: iframeWindow,
-            clientX: x,
-            clientY: y,
-            screenX: x + (iframeWindow.screenX || 0),
-            screenY: y + (iframeWindow.screenY || 0),
-            movementX: Math.floor(Math.random() * 10) - 5,
-            movementY: Math.floor(Math.random() * 10) - 5
-          });
-          videoElement.dispatchEvent(event);
-        });
-
-        // 随机滚动页面
-        if (Math.random() > 0.7) {
-          const scrollAmount = Math.floor(Math.random() * 100) - 50;
-          iframeWindow.scrollBy(0, scrollAmount);
-        }
-      };
-
-      // 每3-8秒模拟一次鼠标活动
-      const scheduleMouseMovement = () => {
-        const delay = Math.floor(Math.random() * (8 - 3 + 1) + 3) * 1000;
-        mouseMoveTimer = setTimeout(() => {
-          simulateMouseMovement();
-          if (isVideoJobUnfinished(iframeWindow, player)) {
-            scheduleMouseMovement();
-          }
-        }, delay);
-      };
-      scheduleMouseMovement();
-
       await new Promise((resolve) => {
         const intervalId = setInterval(() => {
           if (isVideoJobUnfinished(iframeWindow, player)) {
@@ -2174,7 +2100,7 @@
             rateFixEnabled && player.playbackRate() !== videoRate && player.playbackRate(videoRate);
             quizEnabled && handleVideoQuiz(iframeWindow);
           } else
-            clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve();
+            clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
         }, 1e3), pauseBase = player.pause;
         // 接管 player.pause：页面在切换标签/失焦时会调用它暂停视频，必须屏蔽掉；
         // 同时脚本自己也不做真实的"暂停→播放"切换（反复暂停播放会触发风控）。
@@ -2182,9 +2108,9 @@
         // duration > 0 这个条件不能省：元数据还没就绪时 duration() 为 0，否则任何一次 pause 都会被误判成"播放完成"
         player.pause = function() {
           const duration = player.duration();
-          duration > 0 && player.currentTime() >= duration && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve());
+          duration > 0 && player.currentTime() >= duration && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), resolve());
         }, player.on("ended", () => {
-          console.log("视频播放完成1"), player.pause = pauseBase, player.pause(), clearInterval(intervalId), clearTimeout(pauseTimer), clearTimeout(mouseMoveTimer), resolve();
+          console.log("视频播放完成1"), player.pause = pauseBase, player.pause(), clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
         });
       }), console.log("任务点完成");
     }
