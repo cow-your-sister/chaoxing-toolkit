@@ -2102,15 +2102,21 @@
           } else
             clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
         }, 1e3), pauseBase = player.pause;
+        let videoFinished = false;
+        const finishVideo = () => {
+          if (videoFinished)
+            return;
+          videoFinished = true, console.log("视频播放完成"), player.pause = pauseBase, clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
+        };
         // 接管 player.pause：页面在切换标签/失焦时会调用它暂停视频，必须屏蔽掉；
         // 同时脚本自己也不做真实的"暂停→播放"切换（反复暂停播放会触发风控）。
         // 这个覆盖不会调用原始 pause，只有播到结尾时才会把 pause 还原。
         // duration > 0 这个条件不能省：元数据还没就绪时 duration() 为 0，否则任何一次 pause 都会被误判成"播放完成"
         player.pause = function() {
           const duration = player.duration();
-          duration > 0 && player.currentTime() >= duration && (console.log("视频播放完成"), player.pause = pauseBase, clearTimeout(pauseTimer), resolve());
+          duration > 0 && player.currentTime() >= duration && finishVideo();
         }, player.on("ended", () => {
-          console.log("视频播放完成1"), player.pause = pauseBase, player.pause(), clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
+          player.pause = pauseBase, player.pause(), finishVideo();
         });
       }), console.log("任务点完成");
     }
