@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超星学习通自动化助手
 // @namespace    askAuto
-// @version      2.6.3
+// @version      2.6.4
 // @author       shushoujiu
 // @description  超星学习通任务点自动跳转、章节测验/作业/考试自动答题（自定义题库 + AI），视频/音频自动播放
 // @match        *://*.chaoxing.com/*
@@ -76,11 +76,11 @@
     if ("undefined" == typeof config.videoRate || "undefined" == typeof config.videoRateFixEnabled || "undefined" == typeof config.videoQuizEnabled || "undefined" == typeof config.videoRateUnlockEnabled) {
       "undefined" == typeof config.videoRate && (config.videoRate = defaultConfig$1.videoRate), "undefined" == typeof config.videoRateFixEnabled && (config.videoRateFixEnabled = defaultConfig$1.videoRateFixEnabled), "undefined" == typeof config.videoQuizEnabled && (config.videoQuizEnabled = defaultConfig$1.videoQuizEnabled), "undefined" == typeof config.videoRateUnlockEnabled && (config.videoRateUnlockEnabled = defaultConfig$1.videoRateUnlockEnabled), _GM_setValue("config", config);
     }
-    if ("undefined" == typeof config.videoLogReportEnabled || "undefined" == typeof config.videoLogReportMode || "undefined" == typeof config.videoLogReportRateThreshold || "undefined" == typeof config.videoLogDisguiseRate || "undefined" == typeof config.videoLogReportDebug) {
-      "undefined" == typeof config.videoLogReportEnabled && (config.videoLogReportEnabled = defaultConfig$1.videoLogReportEnabled), "undefined" == typeof config.videoLogReportMode && (config.videoLogReportMode = defaultConfig$1.videoLogReportMode), "undefined" == typeof config.videoLogReportRateThreshold && (config.videoLogReportRateThreshold = defaultConfig$1.videoLogReportRateThreshold), "undefined" == typeof config.videoLogDisguiseRate && (config.videoLogDisguiseRate = defaultConfig$1.videoLogDisguiseRate), "undefined" == typeof config.videoLogReportDebug && (config.videoLogReportDebug = defaultConfig$1.videoLogReportDebug), _GM_setValue("config", config);
+    if ("undefined" == typeof config.videoLogReportEnabled || "undefined" == typeof config.videoLogSimulatePause || "undefined" == typeof config.videoLogReportRateThreshold || "undefined" == typeof config.videoLogDisguiseRate || "undefined" == typeof config.videoLogReportDebug) {
+      "undefined" == typeof config.videoLogReportEnabled && (config.videoLogReportEnabled = defaultConfig$1.videoLogReportEnabled), "undefined" == typeof config.videoLogSimulatePause && (config.videoLogSimulatePause = defaultConfig$1.videoLogSimulatePause), "undefined" == typeof config.videoLogReportRateThreshold && (config.videoLogReportRateThreshold = defaultConfig$1.videoLogReportRateThreshold), "undefined" == typeof config.videoLogDisguiseRate && (config.videoLogDisguiseRate = defaultConfig$1.videoLogDisguiseRate), "undefined" == typeof config.videoLogReportDebug && (config.videoLogReportDebug = defaultConfig$1.videoLogReportDebug), _GM_setValue("config", config);
     }
     return config;
-  }, defaultConfig$1 = { autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, videoRate: 16, videoRateFixEnabled: true, videoRateUnlockEnabled: true, videoQuizEnabled: true, videoLogReportEnabled: false, videoLogReportMode: "scale", videoLogReportRateThreshold: 1, videoLogDisguiseRate: 1, videoLogReportDebug: false, customApiEnabled: false, customApiUrl: "", customApiKey: "", aiEnabled: false, aiApiUrl: "", aiModel: "", aiApiKey: "", aiTimeout: 120, aiRetryEnabled: true, aiRetryCount: 2, aiRetryInterval: 3, answerMode: "hybrid", uploadEnabled: false, uploadTargets: [{ name: "题库海", url: "http://api.tikuhai.com/save1" }] }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "answerMode", label: "答题模式", type: "select", value: defaultConfig$1.answerMode, options: [{ label: "题库优先 + AI 兜底", value: "hybrid" }, { label: "AI 直答（不使用题库）", value: "ai" }, { label: "仅题库", value: "tiku" }], desc: "hybrid：先查自定义题库，查不到再用 AI；ai：跳过题库，每道题直接发给 AI 并自动填回网页；tiku：只用自定义题库，不调用 AI" }, { name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案（AI 直答模式下不会查询题库）" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案（仅“题库优先 + AI 兜底”模式下生效，AI 直答模式只要填了密钥即可用）" }, { name: "aiApiUrl", label: "AI 接口地址", type: "input", placeholder: "https://api.deepseek.com/v1/chat/completions", value: defaultConfig$1.aiApiUrl, desc: "OpenAI 兼容的 chat completions 接口【完整地址】，必须以 /chat/completions 结尾（不要只填服务商主页或 /v1）。DeepSeek：https://api.deepseek.com/v1/chat/completions；OpenAI：https://api.openai.com/v1/chat/completions；其他服务商按其文档填写" }, { name: "aiModel", label: "AI 模型名称", type: "input", placeholder: "deepseek-reasoner", value: defaultConfig$1.aiModel, desc: "服务商提供的模型名，各厂商命名不同，如 deepseek-reasoner、deepseek-chat、gpt-4o、qwen-plus、moonshot-v1-8k 等" }, { name: "aiApiKey", label: "AI API 密钥", type: "input", placeholder: "sk-...", value: defaultConfig$1.aiApiKey, desc: "服务商控制台生成的 API 密钥，填写完请保存再刷新页面" }, { name: "aiTimeout", label: "AI请求超时(秒)", type: "number", value: defaultConfig$1.aiTimeout, desc: "推理模型（如 deepseek-reasoner）响应较慢，建议 120 秒以上；超时会导致该题没有答案" }, { name: "aiRetryEnabled", label: "AI无答案时重试", type: "switch", value: defaultConfig$1.aiRetryEnabled, desc: "AI 未返回有效答案（请求失败、超时或返回内容无法解析）时自动重试" }, { name: "aiRetryCount", label: "AI重试次数", type: "number", value: defaultConfig$1.aiRetryCount, desc: "无答案时最多再重试几次，范围 0-10，仅在开启重试时生效" }, { name: "aiRetryInterval", label: "AI重试间隔(秒)", type: "number", value: defaultConfig$1.aiRetryInterval, desc: "每次重试之间的等待秒数，范围 0-60，避免频繁请求服务商" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "videoRate", label: "视频播放倍速", type: "number", value: defaultConfig$1.videoRate, desc: "自动播放视频时的倍速，默认 16（原脚本行为），范围 1-16；设为 1 即原速播放" }, { name: "videoRateFixEnabled", label: "保持倍速", type: "switch", value: defaultConfig$1.videoRateFixEnabled, desc: "部分页面会把播放速度重置回 1，开启后每秒重新设置一次" }, { name: "videoRateUnlockEnabled", label: "解除倍速限制", type: "switch", value: defaultConfig$1.videoRateUnlockEnabled, desc: "拦截播放器内置的倍速上限监听（否则超过页面允许的倍速会被立即重置回 1），使上面设置的倍速生效；平台是否在服务端另行校验观看时长不属于此开关能控制的范围" }, { name: "videoQuizEnabled", label: "视频弹题自动作答", type: "switch", value: defaultConfig$1.videoQuizEnabled, desc: "视频中途弹出题目时，按当前答题模式（自定义题库 / AI）自动作答并提交" },   { name: "videoLogReportEnabled", label: "日志上报改写", type: "switch", value: defaultConfig$1.videoLogReportEnabled, desc: "开启后，播放器上报的 _t 时间戳会前调，使高速播放时上报的进度/时间看起来像正常速度观看；playingTime 保持真实进度以确保任务完成判定；默认关闭" },   { name: "videoLogReportMode", label: "上报改写模式", type: "select", value: defaultConfig$1.videoLogReportMode, options: [{ label: "前调时间戳（推荐）", value: "scale_timestamp" }], desc: "playingTime 保持真实进度不折算，通过前调 _t 时间戳伪装播放速率；确保 playingTime 能达到 duration 以触发任务完成判定" }, { name: "videoLogReportRateThreshold", label: "改写倍速阈值", type: "number", value: defaultConfig$1.videoLogReportRateThreshold, desc: "只有实际播放倍速高于此值时才改写上报；设为 1 表示所有倍速都改写，设为 2 表示只有 2 倍以上才改写" },   { name: "videoLogDisguiseRate", label: "伪装倍速", type: "number", value: defaultConfig$1.videoLogDisguiseRate, desc: "上报时伪装成的播放倍速，1 表示按正常速度上报；实际播放 16x、伪装 1x 时，_t 时间戳会前调使速率看起来是 1x；playingTime 保持真实进度" }, { name: "videoLogReportDebug", label: "上报调试日志", type: "switch", value: defaultConfig$1.videoLogReportDebug, desc: "开启后在控制台打印每次改写的详细信息，用于验证改写是否正确" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }, { name: "upload", label: "题目上报", config: [{ name: "uploadEnabled", label: "启用题目上报", type: "switch", value: defaultConfig$1.uploadEnabled, desc: "开启后，做章节测验/作业时会把题目与答案上报到下面列表里的地址；默认关闭，不上报任何数据" }, { name: "uploadTargets", label: "上报目标列表", type: "targets", value: defaultConfig$1.uploadTargets, desc: "每项包含题库名称与上报地址，请求方式为 POST JSON {questionList, url}；默认含题库海，可自行添加或删除。访问新域名时油猴会提示授权，不需要手改脚本头部" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
+  }, defaultConfig$1 = { autoAnswer: true, autoVideo: true, autoJump: true, autoSubmit: true, interval: 3, answerIntervalMin: 8, answerIntervalMax: 30, submitDelayMin: 20, submitDelayMax: 40, minAccuracy: 0.8, autoExam: true, videoRate: 16, videoRateFixEnabled: true, videoRateUnlockEnabled: true, videoQuizEnabled: true, videoLogReportEnabled: false, videoLogReportRateThreshold: 1, videoLogDisguiseRate: 1, videoLogReportDebug: false, videoLogSimulatePause: false, customApiEnabled: false, customApiUrl: "", customApiKey: "", aiEnabled: false, aiApiUrl: "", aiModel: "", aiApiKey: "", aiTimeout: 120, aiRetryEnabled: true, aiRetryCount: 2, aiRetryInterval: 3, answerMode: "hybrid", uploadEnabled: false, uploadTargets: [{ name: "题库海", url: "http://api.tikuhai.com/save1" }] }, userConfig = [{ name: "base", label: "基础配置", config: [{ name: "answerMode", label: "答题模式", type: "select", value: defaultConfig$1.answerMode, options: [{ label: "题库优先 + AI 兜底", value: "hybrid" }, { label: "AI 直答（不使用题库）", value: "ai" }, { label: "仅题库", value: "tiku" }], desc: "hybrid：先查自定义题库，查不到再用 AI；ai：跳过题库，每道题直接发给 AI 并自动填回网页；tiku：只用自定义题库，不调用 AI" }, { name: "interval", label: "通用间隔(秒)", type: "number", value: defaultConfig$1.interval, desc: "通用间隔，用于脚本运行切换" }, { name: "answerIntervalMin", label: "答题间隔最小值(秒)", type: "number", value: defaultConfig$1.answerIntervalMin, desc: "每道题之间的最小等待时间" }, { name: "answerIntervalMax", label: "答题间隔最大值(秒)", type: "number", value: defaultConfig$1.answerIntervalMax, desc: "每道题之间的最大等待时间" }, { name: "submitDelayMin", label: "提交前延迟最小值(秒)", type: "number", value: defaultConfig$1.submitDelayMin, desc: "全部答完题后提交前的最小等待时间" }, { name: "submitDelayMax", label: "提交前延迟最大值(秒)", type: "number", value: defaultConfig$1.submitDelayMax, desc: "全部答完题后提交前的最大等待时间" }, { name: "customApiEnabled", label: "启用自定义题库", type: "switch", value: defaultConfig$1.customApiEnabled, desc: "开启后，会优先使用自定义题库接口查询答案（AI 直答模式下不会查询题库）" }, { name: "customApiUrl", label: "自定义题库地址", type: "input", value: defaultConfig$1.customApiUrl, desc: "你的题库服务器API地址，例如：http://localhost:8080/api/query" }, { name: "customApiKey", label: "自定义题库密钥", type: "input", value: defaultConfig$1.customApiKey, desc: "你的题库服务器API密钥（如果有的话）" }, { name: "aiEnabled", label: "启用AI自动答题", type: "switch", value: defaultConfig$1.aiEnabled, desc: "开启后，当题库查询失败时会调用AI获取答案（仅“题库优先 + AI 兜底”模式下生效，AI 直答模式只要填了密钥即可用）" }, { name: "aiApiUrl", label: "AI 接口地址", type: "input", placeholder: "https://api.deepseek.com/v1/chat/completions", value: defaultConfig$1.aiApiUrl, desc: "OpenAI 兼容的 chat completions 接口【完整地址】，必须以 /chat/completions 结尾（不要只填服务商主页或 /v1）。DeepSeek：https://api.deepseek.com/v1/chat/completions；OpenAI：https://api.openai.com/v1/chat/completions；其他服务商按其文档填写" }, { name: "aiModel", label: "AI 模型名称", type: "input", placeholder: "deepseek-reasoner", value: defaultConfig$1.aiModel, desc: "服务商提供的模型名，各厂商命名不同，如 deepseek-reasoner、deepseek-chat、gpt-4o、qwen-plus、moonshot-v1-8k 等" }, { name: "aiApiKey", label: "AI API 密钥", type: "input", placeholder: "sk-...", value: defaultConfig$1.aiApiKey, desc: "服务商控制台生成的 API 密钥，填写完请保存再刷新页面" }, { name: "aiTimeout", label: "AI请求超时(秒)", type: "number", value: defaultConfig$1.aiTimeout, desc: "推理模型（如 deepseek-reasoner）响应较慢，建议 120 秒以上；超时会导致该题没有答案" }, { name: "aiRetryEnabled", label: "AI无答案时重试", type: "switch", value: defaultConfig$1.aiRetryEnabled, desc: "AI 未返回有效答案（请求失败、超时或返回内容无法解析）时自动重试" }, { name: "aiRetryCount", label: "AI重试次数", type: "number", value: defaultConfig$1.aiRetryCount, desc: "无答案时最多再重试几次，范围 0-10，仅在开启重试时生效" }, { name: "aiRetryInterval", label: "AI重试间隔(秒)", type: "number", value: defaultConfig$1.aiRetryInterval, desc: "每次重试之间的等待秒数，范围 0-60，避免频繁请求服务商" }] }, { name: "chapter", label: "章节配置", config: [{ name: "autoAnswer", label: "自动答题", type: "switch", value: defaultConfig$1.autoAnswer, desc: "开启后，会自动答题" }, { name: "autoVideo", label: "自动视频", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动观看视频" }, { name: "videoRate", label: "视频播放倍速", type: "number", value: defaultConfig$1.videoRate, desc: "自动播放视频时的倍速，默认 16（原脚本行为），范围 1-16；设为 1 即原速播放" }, { name: "videoRateFixEnabled", label: "保持倍速", type: "switch", value: defaultConfig$1.videoRateFixEnabled, desc: "部分页面会把播放速度重置回 1，开启后每秒重新设置一次" }, { name: "videoRateUnlockEnabled", label: "解除倍速限制", type: "switch", value: defaultConfig$1.videoRateUnlockEnabled, desc: "拦截播放器内置的倍速上限监听（否则超过页面允许的倍速会被立即重置回 1），使上面设置的倍速生效；平台是否在服务端另行校验观看时长不属于此开关能控制的范围" }, { name: "videoQuizEnabled", label: "视频弹题自动作答", type: "switch", value: defaultConfig$1.videoQuizEnabled, desc: "视频中途弹出题目时，按当前答题模式（自定义题库 / AI）自动作答并提交" },   { name: "videoLogReportEnabled", label: "日志上报改写", type: "switch", value: defaultConfig$1.videoLogReportEnabled, desc: "开启后，播放器上报的 _t 时间戳会前调，使高速播放时上报的进度/时间看起来像正常速度观看；playingTime 保持真实进度以确保任务完成判定；默认关闭" },     { name: "videoLogSimulatePause", label: "模拟暂停", type: "switch", value: defaultConfig$1.videoLogSimulatePause, desc: "开启后会在播放过程中定时模拟暂停（发送 isdrag=2 上报并把暂停时长累加到 _t 前调），使观看行为更接近真人；默认关闭" }, { name: "videoLogReportRateThreshold", label: "改写倍速阈值", type: "number", value: defaultConfig$1.videoLogReportRateThreshold, desc: "只有实际播放倍速高于此值时才改写上报；设为 1 表示所有倍速都改写，设为 2 表示只有 2 倍以上才改写" },   { name: "videoLogDisguiseRate", label: "伪装倍速", type: "number", value: defaultConfig$1.videoLogDisguiseRate, desc: "上报时伪装成的播放倍速，1 表示按正常速度上报；实际播放 16x、伪装 1x 时，_t 时间戳会前调使速率看起来是 1x；playingTime 保持真实进度" }, { name: "videoLogReportDebug", label: "上报调试日志", type: "switch", value: defaultConfig$1.videoLogReportDebug, desc: "开启后在控制台打印每次改写的详细信息，用于验证改写是否正确" }, { name: "autoJump", label: "自动切换", type: "switch", value: defaultConfig$1.autoVideo, desc: "开启后，会自动切换章节" }, { name: "autoSubmit", label: "自动提交", type: "switch", value: defaultConfig$1.autoSubmit, desc: "开启后，会自动提交答案" }, { name: "minAccuracy", label: "最低正确率", type: "input", value: defaultConfig$1.minAccuracy, desc: "不满足最低正确率则不会自动提交答案" }] }, { name: "exam", label: "作业/考试配置", config: [{ name: "autoExam", label: "考试自动切换", type: "switch", value: defaultConfig$1.autoExam, desc: "开启后，会考试会自动切换" }] }, { name: "upload", label: "题目上报", config: [{ name: "uploadEnabled", label: "启用题目上报", type: "switch", value: defaultConfig$1.uploadEnabled, desc: "开启后，做章节测验/作业时会把题目与答案上报到下面列表里的地址；默认关闭，不上报任何数据" }, { name: "uploadTargets", label: "上报目标列表", type: "targets", value: defaultConfig$1.uploadTargets, desc: "每项包含题库名称与上报地址，请求方式为 POST JSON {questionList, url}；默认含题库海，可自行添加或删除。访问新域名时油猴会提示授权，不需要手改脚本头部" }] }], useformStore = pinia$1.defineStore({ id: "formstore", state: () => ({ forminput: getConfig(), dialogV: false, activeName: "base" }), actions: { saveConfig(forminput) {
     _GM_setValue("config", forminput);
   } } });
   var export_helper_default = (sfc, props) => {
@@ -1740,42 +1740,71 @@
     // 与 videojs-ext 原始签名格式一致：[clazzId][userid][jobid][objectId][playingTimeMs][salt][durationMs][clipTime]
     const signStr = `[${params.clazzId || ""}][${params.userid || ""}][${params.jobid || ""}][${params.objectId || ""}][${params.playingTimeMs}][d_yHJ!$pdA~5][${params.durationMs}][${params.clipTime || ""}]`;
     return md5(signStr);
-  }, modifyVideoReportUrl = (originalUrl, actualRate, disguiseRate, timestampMode, debug) => {
+  }, modifyVideoReportUrl = (originalUrl, actualRate, disguiseRate, debug, extraPauseMs) => {
     if (!originalUrl.includes("dtype=Video")) return originalUrl;
     let url = originalUrl;
-    const isdrag = getReportUrlParam(url, "isdrag");
-    // 改写周期性 playing（isdrag=0）和 ended（isdrag=4）上报；drag/pause/play 事件保持原样
-    if (isdrag !== "0" && isdrag !== "4") return url;
     const origPlayingTime = parseFloat(getReportUrlParam(url, "playingTime"));
-    const origDuration = parseFloat(getReportUrlParam(url, "duration"));
-    if (!isFinite(origPlayingTime) || !isFinite(origDuration) || origPlayingTime <= 0) return url;
-    // playingTime 保持原始视频进度（不折算），确保 playingTime 能达到 duration 以触发服务端完成判定；
-    // 伪装速率的手段是前调 _t 时间戳：使 playingTime/_t增量 看起来等于 disguiseRate
-    // 前调量 = origPlayingTime/disguiseRate − origPlayingTime/actualRate（秒），即伪装耗时与实际耗时之差
-    {
-      const origT = parseInt(getReportUrlParam(url, "_t"), 10);
-      if (isFinite(origT)) {
-        const forwardMs = Math.round(origPlayingTime * (1 / disguiseRate - 1 / actualRate) * 1000);
-        if (forwardMs > 0) {
-          url = replaceReportUrlParam(url, "_t", String(origT + forwardMs));
-          debug && console.log(`[视频日志] _t 前调: ${origT} → ${origT + forwardMs} (+${forwardMs}ms)`);
-        }
+    if (!isFinite(origPlayingTime) || origPlayingTime < 0) return url;
+    // playingTime/duration/isdrag/enc 均不改动——只前调 _t 来伪装速率，同时叠加累计模拟暂停时间
+    const origT = parseInt(getReportUrlParam(url, "_t"), 10);
+    if (isFinite(origT)) {
+      const forwardMs = Math.round(origPlayingTime * (1 / disguiseRate - 1 / actualRate) * 1000) + (extraPauseMs || 0);
+      if (forwardMs > 0) {
+        url = replaceReportUrlParam(url, "_t", String(origT + forwardMs));
+        debug && console.log(`[视频日志] _t 前调: ${origT} → ${origT + forwardMs} (+${forwardMs}ms)`);
       }
     }
-    // playingTime/duration 均未改动，enc 无需重算
-    debug && console.log(`[视频日志] 改写: isdrag=${isdrag}, playingTime ${origPlayingTime}s(不变), duration ${origDuration}s(不变), ${actualRate}x→伪装${disguiseRate}x`);
+    debug && console.log(`[视频日志] 改写: isdrag=${getReportUrlParam(url, "isdrag")}, playingTime ${origPlayingTime}s(不变), ${actualRate}x→伪装${disguiseRate}x${extraPauseMs ? ", 含暂停+" + Math.round(extraPauseMs / 1e3) + "s" : ""}`);
     return url;
   }, installVideoLogReportHook = (iframeWindow, player, config) => {
     if (false === config.videoLogReportEnabled) return false;
     const disguiseRate = Math.max(0.1, Number(config.videoLogDisguiseRate) || 1);
     const rateThreshold = Math.max(1, Number(config.videoLogReportRateThreshold) || 1);
-    const timestampMode = config.videoLogReportMode || "scale";
     const debug = false !== config.videoLogReportDebug;
+    const simulatePauseEnabled = false !== config.videoLogSimulatePause;
+    // —— 状态：累计模拟暂停毫秒数、最近上报 URL（做模板）、关键上报是否已由客户端发出 ——
+    let totalPauseMs = 0, lastReportUrl = null, sawIsdrag3 = false, sawIsdrag4 = false, pauseTimerId = null, disposed = false;
+    // 以最近上报 URL 为模板，手动构造并发送一条自定义上报（isdrag / playingTime / enc / _t 均重设）
+    const sendCustomReport = (isdrag, playingTime) => {
+      if (!lastReportUrl || disposed) return;
+      let url = replaceReportUrlParam(lastReportUrl, "isdrag", String(isdrag));
+      url = replaceReportUrlParam(url, "playingTime", String(playingTime));
+      const durationMs = Math.round(parseFloat(getReportUrlParam(url, "duration")) * 1e3);
+      url = replaceReportUrlParam(url, "enc", computeVideoReportEnc({ clazzId: getReportUrlParam(url, "clazzId"), userid: getReportUrlParam(url, "userid"), jobid: getReportUrlParam(url, "jobid"), objectId: getReportUrlParam(url, "objectId"), clipTime: getReportUrlParam(url, "clipTime"), playingTimeMs: Math.round(playingTime * 1e3), durationMs }));
+      url = replaceReportUrlParam(url, "_t", String(Date.now()));
+      try {
+        const xhr = new iframeWindow.XMLHttpRequest();
+        xhr.open("GET", url), xhr.send();
+        debug && console.log(`[视频日志] 手动上报: isdrag=${isdrag}, playingTime=${playingTime}`);
+      } catch (e) { debug && console.warn("[视频日志] 手动上报失败:", e); }
+    };
+    // 模拟暂停：定时发 isdrag=2 → 等暂停时长 → 累加 totalPauseMs → 排下一次
+    const schedulePause = () => {
+      if (disposed) return;
+      pauseTimerId = setTimeout(() => {
+        if (disposed || !player || player.isDisposed && player.isDisposed() || player.ended()) return;
+        const pt = Math.floor(player.currentTime());
+        if (pt > 0 && lastReportUrl) {
+          sendCustomReport(2, pt);
+          const pauseMs = 1e4 + Math.round(Math.random() * 2e4);
+          pauseTimerId = setTimeout(() => {
+            totalPauseMs += pauseMs;
+            debug && console.log(`[视频日志] 模拟暂停 +${Math.round(pauseMs / 1e3)}s，累计暂停 ${Math.round(totalPauseMs / 1e3)}s`);
+            schedulePause();
+          }, pauseMs);
+        } else schedulePause();
+      }, 6e4 + Math.round(Math.random() * 6e4));
+    };
+    // 改写上报：_t 前调 + 追踪关键上报
     const rewriteIfNeed = (uri) => {
       if ("string" != typeof uri || -1 === uri.indexOf("dtype=Video")) return uri;
+      lastReportUrl = uri;
+      const isdrag = getReportUrlParam(uri, "isdrag");
+      if (isdrag === "3") sawIsdrag3 = true;
+      if (isdrag === "4") sawIsdrag4 = true;
       try {
         const rate = Math.max(0.1, Number(player.playbackRate()) || 1);
-        return rate > rateThreshold ? modifyVideoReportUrl(uri, rate, disguiseRate, timestampMode, debug) : uri;
+        return rate > rateThreshold ? modifyVideoReportUrl(uri, rate, disguiseRate, debug, totalPauseMs) : uri;
       } catch (e) {
         return debug && console.warn("[视频日志] 改写上报异常:", e), uri;
       }
@@ -1792,11 +1821,16 @@
         if (args.length > 1) args[1] = rewriteIfNeed(args[1]);
         return origOpen.apply(this, args);
       };
-      console.log(`[视频日志] 上报拦截已安装(XHR层)：阈值 ${rateThreshold}x, 伪装 ${disguiseRate}x, 策略 playingTime不折算+_t前调`);
-      return true;
     } catch (e) {
       return console.warn("[视频日志] 安装上报拦截失败:", e), false;
     }
+    // 关键上报兜底：客户端若漏发 isdrag=3（开始）/ isdrag=4（结束），手动补一条
+    player.on("play", () => setTimeout(() => { if (!sawIsdrag3 && !disposed) { console.log("[视频日志] 客户端未上报 isdrag=3，手动补报"); sendCustomReport(3, 0); } }, 5e3));
+    player.on("ended", () => setTimeout(() => { if (!sawIsdrag4 && !disposed) { console.log("[视频日志] 客户端未上报 isdrag=4，手动补报"); sendCustomReport(4, Math.floor(player.duration() || 0)); } }, 5e3));
+    player.on("dispose", () => { disposed = true; pauseTimerId && clearTimeout(pauseTimerId); });
+    if (simulatePauseEnabled) schedulePause();
+    console.log(`[视频日志] 上报拦截已安装(XHR层)：阈值 ${rateThreshold}x, 伪装 ${disguiseRate}x, _t前调${simulatePauseEnabled ? "+模拟暂停" : ""}`);
+    return true;
   }, installAplusQueueHook = (iframeWindow, player, config) => {
     // aplus_queue.js 只负责初始化数组并加载阿里 aplus SDK；真正的时间/速率负载由 videojs-ext 推入。
     // 心跳(heartbeat)与拖动/暂停类事件不携带时间字段，无需改写；这里只处理会泄露倍速或视频时长的三类事件。
