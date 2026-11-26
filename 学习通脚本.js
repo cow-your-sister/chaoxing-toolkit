@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         超星学习通自动化助手
 // @namespace    askAuto
-// @version      2.6.1
+// @version      2.6.2
 // @author       shushoujiu
 // @description  超星学习通任务点自动跳转、章节测验/作业/考试自动答题（自定义题库 + AI），视频/音频自动播放
 // @match        *://*.chaoxing.com/*
@@ -2102,13 +2102,13 @@
             rateFixEnabled && player.playbackRate() !== videoRate && player.playbackRate(videoRate);
             quizEnabled && handleVideoQuiz(iframeWindow);
           } else
-            clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
+            clearInterval(intervalId), resolve();
         }, 1e3), pauseBase = player.pause;
         let videoFinished = false;
         const finishVideo = () => {
           if (videoFinished)
             return;
-          videoFinished = true, console.log("视频播放完成"), player.pause = pauseBase, clearInterval(intervalId), clearTimeout(pauseTimer), resolve();
+          videoFinished = true, console.log("视频播放完成"), player.pause = pauseBase, clearInterval(intervalId), resolve();
         };
         // 接管 player.pause：页面在切换标签/失焦时会调用它暂停视频，必须屏蔽掉；
         // 同时脚本自己也不做真实的"暂停→播放"切换（反复暂停播放会触发风控）。
